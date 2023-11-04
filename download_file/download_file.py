@@ -8,6 +8,11 @@ try:
 except Exception as exc:
     print('There was a problem: %s' % (exc))
 
-with open('Romeo_and_Juliet.txt', 'wb') as f:
-    for chunk in res.iter_content(100000):
-        f.write(chunk)
+# print(type(res.text))
+# print(res.text[:20])
+# with open('Romeo_and_Juliet.txt', 'w', encoding = 'utf-8') as f:
+#     f.write(res.text)
+
+# with open('Romeo_and_Juliet.txt', 'wb') as f:
+#     for chunk in res.iter_content(100000):
+#         f.write(chunk)
