@@ -2,41 +2,84 @@
 
 # download every single XKCD comic.
 
-import requests, os, bs4
+import requests, os, bs4, sys
+from datetime import date
 
-url = 'https://www.cool18.com/bbs/index.php'
-os.makedirs('cool', exist_ok=True)
+import string
+import random
 
-# Download the page.
-print('Downloading page %s ...' % url)
-res = requests.get(url)
-res.raise_for_status()
+def generate_random_string(length):
+  """Generates a random string of the specified length."""
+  characters = string.ascii_lowercase + string.digits
+  random_string = ''.join(random.choice(characters) for _ in range(length))
+  return random_string
 
-soup = bs4.BeautifulSoup(res.text, 'html.parser')
-# Find the URL of the comic image.
-postElems = soup.select('ul li a')
-if postElems == []:
-    print('Could not find any post.')
-else:
-    print(len(postElems))
-    print(postElems[0])
-    for i in range(10):
-        print(i)
-        print(str(postElems[i]))
-    # Download the image.
-    # print('Downloading image %s ...' % (comicUrl))
-    # res = requests.get('https:' + comicUrl)
-    # res.raise_for_status()
+if __name__ == "__main__":
+    today = date.today()
 
-# Save the image to ./xkcd
-# with open(os.path.join('xkcd', os.path.basename(comicUrl)), 'wb') as imageFile:
-#     for chunk in res.iter_content(100000):
-#         imageFile.write(chunk)
+    today_str = today.strftime("%m/%d/%y")
+    date_str = today.strftime("%Y%m%d")
+    print('Getting updated pix for ' + today_str)
 
-# Get the Prev button's url.
-# prevLink = soup.select('a[rel="prev"]')
-# url = 'https://xkcd.com/'+prevLink[0].get('href')
+    url = 'https://www.cool18.com/bbs/'
 
-# print(url)
+    if not os.path.isdir('cool'):
+        os.makedirs('cool', exist_ok=True)
 
-print('Done.')
+    # Download the page.
+    print('Downloading page %s...' % url)
+    res = requests.get(url)
+    res.raise_for_status()
+
+    soup = bs4.BeautifulSoup(res.text, 'html.parser')
+    postElems = soup.select('div#d_list.main_right_margin > ul > li > a')
+
+    if len(postElems) == 0:
+        print('Could not find any post, exiting...')
+        sys.exit(1)
+
+    postElems_filtered = [ x for x in postElems if x.get('href').startswith('index')]
+
+    dateElems = soup.select('div#d_list.main_right_margin ul li i')
+
+    n = min(len(postElems_filtered), len(dateElems))
+
+    postElems_filtered_today_updated = []
+    for i in range(n):
+        if (dateElems[i].text == today_str) and (not os.path.isdir('cool/' + date_str + '_' + postElems_filtered[i].text)):
+            postElems_filtered_today_updated.append(postElems_filtered[i])
+
+    updated_posts_no = len(postElems_filtered_today_updated)
+
+    if updated_posts_no == 0:
+        print("No updated posts to download.")
+        sys.exit()
+    else:
+        print(str(updated_posts_no) + " updated posts to download.")
+
+    for i in range(updated_posts_no):
+        print("checking " + postElems_filtered_today_updated[i].text)
+        new_sub_dir = 'cool/' + date_str + '_' + postElems_filtered_today_updated[i].text
+        if not os.path.isdir(new_sub_dir):
+            os.makedirs(new_sub_dir, exist_ok = True)
+        next_link = url + postElems_filtered_today_updated[i].get('href')
+        res = requests.get(next_link)
+        res.raise_for_status()
+        soup = bs4.BeautifulSoup(res.text, 'html.parser')
+        imgElems = soup.select('img[mydatasrc]')
+        if len(imgElems) == 0:
+            continue
+        for i in range(len(imgElems)):
+            img_url = imgElems[i].get('mydatasrc')
+            print('downloading ' + img_url)
+            res = requests.get(img_url)
+            res.raise_for_status()
+            if os.path.isfile(os.path.join(new_sub_dir, os.path.basename(img_url))):
+                image_name = os.path.join(new_sub_dir, generate_random_string(5) + os.path.basename(img_url))
+            else:
+                image_name = os.path.join(new_sub_dir, os.path.basename(img_url))
+            with open(os.path.join(new_sub_dir, os.path.basename(img_url)), 'wb') as imageFile:
+                for chunk in res.iter_content(100000):
+                    imageFile.write(chunk)
+
+    print('Done.')
